@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChatWave - Random 1v1 Chat</title>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js">
+    </script>
+    <style>
+        /* ============ RESET & BASE ============ */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* ============ MAIN CONTAINER ============ */
+        .app-container {
+            width: 100%;
+            max-width: 450px;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(20px);
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        /* ============ SCREENS ============ */
+        .screen {
+            display: none;
+            padding: 25px 20px;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(15px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ============ HEADER ============ */
+        .header {
+            text-align: center;
+            padding: 10px 0 20px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(45deg, #f093fb, #f5576c, #4facfe, #00f2fe);
+            background-size: 300% 300%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradientShift 4s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0%,
+            100% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+        }
+
+        .header p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        /* ============ FORM ELEMENTS ============ */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 15px;
+            outline: none;
+            transition: 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.35);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: #4facfe;
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 20px rgba(79, 172, 254, 0.15);
+        }
+
+        .form-group select option {
+            background: #1a1a2e;
+            color: #fff;
+        }
+
+        /* ============ GENDER PILLS ============ */
+        .gender-pills {
+            display: flex;
+            gap: 10px;
+        }
+
+        .gender-pill {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            cursor: pointer;
+            transition: 0.3s;
+            font-weight: 600;
+            font-size: 14px;
+            user-select: none;
+        }
+
+        .gender-pill.selected {
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            color: #fff;
+            border-color: transparent;
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+        }
+
+        .gender-pill.selected.girl {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
+        }
+
+        /* ============ PREFERENCE PILLS ============ */
+        .pref-pills {
+            display: flex;
+            gap: 10px;
+        }
+
+        .pref-pill {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            cursor: pointer;
+            transition: 0.3s;
+            font-weight: 600;
+            font-size: 14px;
+            user-select: none;
+        }
+
+        .pref-pill.selected {
+            background: linear-gradient(135deg, #fa709a, #fee140);
+            color: #fff;
+            border-color: transparent;
+            box-shadow: 0 4px 15px rgba(250, 112, 154, 0.3);
+        }
+
+        /* ============ BUTTONS ============ */
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+            color: #fff;
+            box-shadow: 0 8px 25px rgba(79, 172, 254, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(79, 172, 254, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #f093fb, #f5576c);
+            color: #fff;
+            box-shadow: 0 8px 25px rgba(245, 87, 108, 0.3);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(245, 87, 108, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.18);
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 13px;
+            width: auto;
+            border-radius: 12px;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        /* ============ CHAT UI ============ */
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 12px;
+        }
+
+        .chat-partner-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .partner-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .partner-details h4 {
+            color: #fff;
+            font-size: 15px;
+        }
+
+        .partner-details span {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 12px;
+        }
+
+        .chat-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-actions button {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chat-actions button:hover {
+            background: rgba(255, 255, 255, 0.18);
+        }
+
+        .chat-actions button.skip-btn {
+            background: rgba(245, 87, 108, 0.2);
+            color: #f5576c;
+        }
+
+        .chat-actions button.skip-btn:hover {
+            background: rgba(245, 87, 108, 0.35);
+        }
+
+        /* ============ MESSAGES ============ */
+        .messages-container {
+            height: 380px;
+            overflow-y: auto;
+            padding: 10px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            scroll-behavior: smooth;
+        }
+
+        .messages-container::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .messages-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .messages-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+            animation: msgPop 0.25s ease;
+        }
+
+        @keyframes msgPop {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .message.sent {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.received {
+            align-self: flex-start;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message .msg-time {
+            font-size: 10px;
+            opacity: 0.6;
+            margin-top: 4px;
+            display: block;
+        }
+
+        .message .msg-emoji {
+            font-size: 32px;
+        }
+
+        /* ============ CHAT INPUT ============ */
+        .chat-input-area {
+            display: flex;
+            gap: 8px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            margin-top: 8px;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .chat-input-area input::placeholder {
+            color: rgba(255, 255, 255, 0.35);
+        }
+
+        .chat-input-area .input-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .chat-input-area .input-actions button {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            border: none;
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chat-input-area .input-actions button:hover {
+            background: rgba(255, 255, 255, 0.18);
+        }
+
+        .chat-input-area .input-actions button.send-btn {
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            width: 52px;
+        }
+
+        /* ============ EMOJI PICKER ============ */
+        .emoji-picker {
+            display: none;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .emoji-picker.show {
+            display: flex;
+        }
+
+        .emoji-picker span {
+            font-size: 26px;
+            cursor: pointer;
+            transition: 0.2s;
+            padding: 2px;
+        }
+
+        .emoji-picker span:hover {
+            transform: scale(1.3);
+        }
+
+        /* ============ IMAGE PREVIEW ============ */
+        .image-preview-container {
+            display: none;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            margin-top: 6px;
+            position: relative;
+        }
+
+        .image-preview-container.show {
+            display: block;
+        }
+
+        .image-preview-container img {
+            max-width: 100%;
+            max-height: 180px;
+            border-radius: 10px;
+            display: block;
+        }
+
+        .image-preview-container .cancel-img {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        /* ============ TYPING INDICATOR ============ */
+        .typing-indicator {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 12px;
+            padding: 4px 0;
+            min-height: 20px;
+            font-style: italic;
+        }
+
+        /* ============ MATCHING STATUS ============ */
+        .matching-status {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .matching-status .spinner {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 4px solid rgba(255, 255, 255, 0.08);
+            border-top-color: #4facfe;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .matching-status h3 {
+            color: #fff;
+            font-size: 18px;
+        }
+
+        .matching-status p {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 13px;
+            margin-top: 6px;
+        }
+
+        .matching-status .cancel-btn {
+            margin-top: 24px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 10px 30px;
+            border-radius: 14px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.3s;
+        }
+
+        .matching-status .cancel-btn:hover {
+            background: rgba(255, 255, 255, 0.18);
+        }
+
+        /* ============ STATUS BADGE ============ */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-badge.online {
+            background: rgba(0, 242, 128, 0.15);
+            color: #00f280;
+        }
+
+        /* ============ VOICE NOTE ============ */
+        .voice-note {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .voice-note:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .voice-note .play-icon {
+            font-size: 20px;
+        }
+
+        .voice-note .waveform {
+            flex: 1;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .voice-note .waveform span {
+            width: 3px;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+            animation: waveAnim 0.8s ease infinite alternate;
+        }
+
+        @keyframes waveAnim {
+            0% {
+                height: 6px;
+            }
+            100% {
+                height: 18px;
+            }
+        }
+
+        /* ============ CONNECTED USERS COUNT ============ */
+        .online-count {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 12px;
+            padding: 4px 0;
+        }
+
+        /* ============ RESPONSIVE ============ */
+        @media (max-width: 480px) {
+            .app-container {
+                border-radius: 0;
+                max-width: 100%;
+                min-height: 100vh;
+            }
+            body {
+                padding: 0;
+            }
+            .messages-container {
+                height: 300px;
+            }
+        }
+
+        /* ============ PROFILE ROW ON CHAT SCREEN ============ */
+        .my-profile-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 0 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            margin-bottom: 6px;
+        }
+
+        .my-profile-bar .my-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #fa709a, #fee140);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .my-profile-bar .my-name {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .my-profile-bar .edit-name-btn {
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px 8px;
+            border-radius: 8px;
+            transition: 0.3s;
+        }
+
+        .my-profile-bar .edit-name-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+        }
+
+        /* hidden file input */
+        .hidden-input {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container" id="app">
+
+        <!-- ============ SCREEN 1: LOGIN / PROFILE SETUP ============ -->
+        <div class="screen active" id="screen-login">
+            <div class="header">
+                <h1>🌊 ChatWave</h1>
+                <p>Meet new people. Chat freely.</p>
+            </div>
+
+            <div class="form-group">
+                <label>👤 Your Name</label>
+                <input type="text" id="input-name" placeholder="Enter your name..." maxlength="30" />
+            </div>
+
+            <div class="form-group">
+                <label>🎂 Age</label>
+                <input type="number" id="input-age" placeholder="18" min="13" max="120" />
+            </div>
+
+            <div class="form-group">
+                <label>⚧️ I am a</label>
+                <div class="gender-pills" id="gender-pills">
+                    <div class="gender-pill selected" data-value="male">👨 Male</div>
+                    <div class="gender-pill girl" data-value="female">👩 Female</div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>🌍 Country</label>
+                <select id="input-country">
+                    <option value="India">🇮🇳 India</option>
+                    <option value="USA">🇺🇸 USA</option>
+                    <option value="UK">🇬🇧 UK</option>
+                    <option value="Canada">🇨🇦 Canada</option>
+                    <option value="Australia">🇦🇺 Australia</option>
+                    <option value="Pakistan">🇵🇰 Pakistan</option>
+                    <option value="Bangladesh">🇧🇩 Bangladesh</option>
+                    <option value="UAE">🇦🇪 UAE</option>
+                    <option value="Other">🌍 Other</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>💬 Want to chat with</label>
+                <div class="pref-pills" id="pref-pills">
+                    <div class="pref-pill selected" data-value="male">👨 Boys</div>
+                    <div class="pref-pill" data-value="female">👩 Girls</div>
+                    <div class="pref-pill" data-value="both">👥 Both</div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" id="btn-start-chat" style="margin-top:8px;">
+                🚀 Start Chatting
+            </button>
+        </div>
+
+        <!-- ============ SCREEN 2: MATCHING ============ -->
+        <div class="screen" id="screen-matching">
+            <div class="matching-status">
+                <div class="spinner"></div>
+                <h3>🔍 Finding Someone...</h3>
+                <p id="matching-info">Looking for a chat partner matching your preference</p>
+                <div class="online-count" id="online-count">👥 0 users online</div>
+                <button class="cancel-btn" id="btn-cancel-match">Cancel</button>
+            </div>
+        </div>
+
+        <!-- ============ SCREEN 3: CHAT ============ -->
+        <div class="screen" id="screen-chat">
+            <!-- My Profile Bar -->
+            <div class="my-profile-bar">
+                <div class="my-avatar" id="my-avatar-display">U</div>
+                <span class="my-name" id="my-name-display">User</span>
+                <button class="edit-name-btn" id="btn-edit-name">✏️</button>
+            </div>
+
+            <!-- Chat Header -->
+            <div class="chat-header">
+                <div class="chat-partner-info">
+                    <div class="partner-avatar" id="partner-avatar">?</div>
+                    <div class="partner-details">
+                        <h4 id="partner-name">Stranger</h4>
+                        <span id="partner-info">🌍 Unknown · ⚧️ ?</span>
+                    </div>
+                </div>
+                <div class="chat-actions">
+                    <button id="btn-emoji-toggle" title="Emojis">😊</button>
+                    <button id="btn-image-share" title="Send Image">🖼️</button>
+                    <button id="btn-voice-note" title="Send Voice Note">🎤</button>
+                    <button class="skip-btn" id="btn-skip" title="Skip → Next">⏭️</button>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div class="messages-container" id="messages-container"></div>
+
+            <!-- Typing Indicator -->
+            <div class="typing-indicator" id="typing-indicator"></div>
+
+            <!-- Emoji Picker -->
+            <div class="emoji-picker" id="emoji-picker">
+                <span>😊</span><span>😂</span><span>😍</span><span>🥰</span><span>😘</span>
+                <span>😎</span><span>🤩</span><span>😢</span><span>😡</span><span>🥺</span>
+                <span>🔥</span><span>💀</span><span>✨</span><span>❤️</span><span>💔</span>
+                <span>👍</span><span>👎</span><span>👀</span><span>💀</span><span>👋</span>
+                <span>🤝</span><span>🎉</span><span>💯</span><span>🙏</span><span>😭</span>
+                <span>🤣</span><span>🥳</span><span>😏</span><span>🤔</span><span>😴</span>
+                <span>🥶</span><span>🤯</span><span>😈</span><span>👻</span><span>💩</span>
+            </div>
+
+            <!-- Image Preview -->
+            <div class="image-preview-container" id="image-preview-container">
+                <button class="cancel-img" id="btn-cancel-image">✕</button>
+                <img id="image-preview" src="" alt="preview" />
+            </div>
+
+            <!-- Input -->
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off" />
+                <div class="input-actions">
+                    <button id="btn-send" class="send-btn">➤</button>
+                </div>
+            </div>
+
+            <!-- Hidden file input for image -->
+            <input type="file" id="image-input" class="hidden-input" accept="image/*" />
+            <!-- Hidden file input for voice -->
+            <input type="file" id="voice-input" class="hidden-input" accept="audio/*" />
+        </div>
+
+    </div>
+
+    <script>
+        // =====================================================
+        //  CONFIG - CHANGE THESE TO MATCH YOUR SERVER
+        // =====================================================
+        const SERVER_URL = 'http://localhost:3000'; // ← apna server URL yahan daalein
+
+        // =====================================================
+        //  STATE
+        // =====================================================
+        let socket = null;
+        let myProfile = {
+            name: '',
+            age: 18,
+            gender: 'male',
+            country: 'India',
+            prefer: 'male'
+        };
+        let currentPartner = null;
+        let isMatching = false;
+        let isChatting = false;
+        let typingTimeout = null;
+
+        // =====================================================
+        //  DOM REFS
+        // =====================================================
+        const $ = id => document.getElementById(id);
+
+        const screenLogin = $('screen-login');
+        const screenMatching = $('screen-matching');
+        const screenChat = $('screen-chat');
+
+        const inputName = $('input-name');
+        const inputAge = $('input-age');
+        const inputCountry = $('input-country');
+        const btnStartChat = $('btn-start-chat');
+        const btnCancelMatch = $('btn-cancel-match');
+        const btnSkip = $('btn-skip');
+        const btnSend = $('btn-send');
+        const chatInput = $('chat-input');
+        const messagesContainer = $('messages-container');
+        const matchingInfo = $('matching-info');
+        const onlineCount = $('online-count');
+        const partnerName = $('partner-name');
+        const partnerInfo = $('partner-info');
+        const partnerAvatar = $('partner-avatar');
+        const myNameDisplay = $('my-name-display');
+        const myAvatarDisplay = $('my-avatar-display');
+        const typingIndicator = $('typing-indicator');
+        const emojiPicker = $('emoji-picker');
+        const btnEmojiToggle = $('btn-emoji-toggle');
+        const btnImageShare = $('btn-image-share');
+        const btnVoiceNote = $('btn-voice-note');
+        const imageInput = $('image-input');
+        const voiceInput = $('voice-input');
+        const imagePreviewContainer = $('image-preview-container');
+        const imagePreview = $('image-preview');
+        const btnCancelImage = $('btn-cancel-image');
+        const btnEditName = $('btn-edit-name');
+
+        // =====================================================
+        //  GENDER / PREF PILLS
+        // =====================================================
+        document.querySelectorAll('.gender-pill').forEach(pill => {
+            pill.addEventListener('click', () => {
+                document.querySelectorAll('.gender-pill').forEach(p => p.classList.remove('selected'));
+                pill.classList.add('selected');
+                myProfile.gender = pill.dataset.value;
+            });
+        });
+
+        document.querySelectorAll('.pref-pill').forEach(pill => {
+            pill.addEventListener('click', () => {
+                document.querySelectorAll('.pref-pill').forEach(p => p.classList.remove('selected'));
+                pill.classList.add('selected');
+                myProfile.prefer = pill.dataset.value;
+            });
+        });
+
+        // =====================================================
+        //  SCREEN MANAGEMENT
+        // =====================================================
+        function showScreen(screen) {
+            [screenLogin, screenMatching, screenChat].forEach(s => s.classList.remove('active'));
+            screen.classList.add('active');
+        }
+
+        // =====================================================
+        //  SOCKET CONNECTION
+        // =====================================================
+        function connectSocket() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+
+            socket = io(SERVER_URL, {
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionAttempts: 10,
+                reconnectionDelay: 1000
+            });
+
+            socket.on('connect', () => {
+                console.log('✅ Connected:', socket.id);
+                // Update profile on server
+                socket.emit('update_profile', myProfile);
+            });
+
+            socket.on('connect_error', (err) => {
+                console.error('❌ Connection error:', err.message);
+                matchingInfo.textContent = '⚠️ Connection failed. Retrying...';
+            });
+
+            socket.on('disconnect', () => {
+                console.log('🔌 Disconnected');
+                if (isChatting) {
+                    addMessage('System', '🔌 Partner disconnected', 'received');
+                    isChatting = false;
+                    currentPartner = null;
+                }
+            });
+
+            socket.on('online_count', (count) => {
+                onlineCount.textContent = `👥 ${count} users online`;
+            });
+
+            // ---- MATCHING ----
+            socket.on('matched', (data) => {
+                isMatching = false;
+                isChatting = true;
+                currentPartner = data;
+                partnerName.textContent = data.name || 'Stranger';
+                const flag = data.country === 'India' ? '🇮🇳' :
+                    data.country === 'USA' ? '🇺🇸' :
+                    data.country === 'UK' ? '🇬🇧' :
+                    data.country === 'Canada' ? '🇨🇦' :
+                    data.country === 'Australia' ? '🇦🇺' :
+                    data.country === 'Pakistan' ? '🇵🇰' :
+                    data.country === 'Bangladesh' ? '🇧🇩' :
+                    data.country === 'UAE' ? '🇦🇪' : '🌍';
+                const genderIcon = data.gender === 'male' ? '👨' : '👩';
+                partnerInfo.textContent = `${flag} ${data.country || 'Unknown'} · ${genderIcon} ${data.gender || '?'} · ${data.age || '?'}y`;
+                partnerAvatar.textContent = data.name ? data.name.charAt(0).toUpperCase() : '?';
+                showScreen(screenChat);
+                addMessage('System', `✅ Matched with ${data.name || 'Stranger'}! Say Hi 👋`, 'received');
+                chatInput.focus();
+            });
+
+            socket.on('match_cancelled', () => {
+                if (isMatching) {
+                    isMatching = false;
+                    showScreen(screenLogin);
+                }
+            });
+
+            socket.on('partner_disconnected', () => {
+                addMessage('System', '👋 Partner left the chat', 'received');
+                isChatting = false;
+                currentPartner = null;
+                // Auto find new after 2s
+                setTimeout(() => {
+                    if (socket && socket.connected) {
+                        startMatching();
+                    }
+                }, 2000);
+            });
+
+            // ---- MESSAGES ----
+            socket.on('message', (data) => {
+                if (data.type === 'text') {
+                    addMessage(data.name || 'Stranger', data.text, 'received');
+                } else if (data.type === 'image') {
+                    addImageMessage(data.name || 'Stranger', data.data, 'received');
+                } else if (data.type === 'voice') {
+                    addVoiceMessage(data.name || 'Stranger', data.data, 'received');
+                }
+            });
+
+            socket.on('previous_messages', (msgs) => {
+                messagesContainer.innerHTML = '';
+                msgs.forEach(m => {
+                    if (m.type === 'text') {
+                        addMessage(m.sender === 'me' ? 'You' : (currentPartner?.name || 'Stranger'), m.text,
+                            m.sender === 'me' ? 'sent' : 'received');
+                    } else if (m.type === 'image') {
+                        addImageMessage(m.sender === 'me' ? 'You' : (currentPartner?.name || 'Stranger'), m
+                            .data, m.sender === 'me' ? 'sent' : 'received');
+                    } else if (m.type === 'voice') {
+                        addVoiceMessage(m.sender === 'me' ? 'You' : (currentPartner?.name || 'Stranger'), m
+                            .data, m.sender === 'me' ? 'sent' : 'received');
+                    }
+                });
+            });
+
+            // ---- TYPING ----
+            socket.on('typing', (name) => {
+                typingIndicator.textContent = `✍️ ${name} is typing...`;
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    typingIndicator.textContent = '';
+                }, 2000);
+            });
+
+            socket.on('stop_typing', () => {
+                typingIndicator.textContent = '';
+            });
+
+            // ---- RE-MATCH ----
+            if (isMatching) {
+                socket.emit('find_match', myProfile);
+            }
+        }
+
+        // =====================================================
+        //  ADD MESSAGE
+        // =====================================================
+        function addMessage(sender, text, type) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+
+            const isEmoji = /^[\p{Emoji}]+$/u.test(text.trim()) && text.trim().length <= 5;
+            if (isEmoji) {
+                div.innerHTML = `<span class="msg-emoji">${text.trim()}</span>`;
+            } else {
+                div.innerHTML = `${text}<span class="msg-time">${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>`;
+            }
+
+            messagesContainer.appendChild(div);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function addImageMessage(sender, dataUrl, type) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.innerHTML =
+                `<img src="${dataUrl}" style="max-width:200px;max-height:200px;border-radius:10px;display:block;" /><span class="msg-time">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>`;
+            messagesContainer.appendChild(div);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function addVoiceMessage(sender, dataUrl, type) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.innerHTML = `
+            <div class="voice-note">
+              <span class="play-icon">🎵</span>
+              <div class="waveform">
+                ${Array(12).fill('<span></span>').join('')}
+              </div>
+              <span style="font-size:11px;opacity:0.6;">🔊 Tap</span>
+            </div>
+            <span class="msg-time">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
+          `;
+            div.querySelector('.voice-note').addEventListener('click', () => {
+                const audio = new Audio(dataUrl);
+                audio.play();
+            });
+            messagesContainer.appendChild(div);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // =====================================================
+        //  START MATCHING
+        // =====================================================
+        function startMatching() {
+            isMatching = true;
+            isChatting = false;
+            currentPartner = null;
+            messagesContainer.innerHTML = '';
+            typingIndicator.textContent = '';
+            emojiPicker.classList.remove('show');
+            imagePreviewContainer.classList.remove('show');
+            showScreen(screenMatching);
+            matchingInfo.textContent = 'Looking for a chat partner matching your preference...';
+
+            if (socket && socket.connected) {
+                socket.emit('find_match', myProfile);
+            } else {
+                connectSocket();
+                // will emit on connect
+                const origConnect = socket.on('connect');
+                // handled above
+            }
+        }
+
+        // =====================================================
+        //  SEND MESSAGE
+        // =====================================================
+        function sendTextMessage() {
+            const text = chatInput.value.trim();
+            if (!text || !socket || !socket.connected || !isChatting) return;
+
+            socket.emit('send_message', { type: 'text', text });
+            addMessage('You', text, 'sent');
+            chatInput.value = '';
+            socket.emit('stop_typing');
+            chatInput.focus();
+        }
+
+        // =====================================================
+        //  EVENT LISTENERS
+        // =====================================================
+
+        // ---- Start Chat ----
+        btnStartChat.addEventListener('click', () => {
+            const name = inputName.value.trim();
+            if (!name) {
+                inputName.style.borderColor = '#f5576c';
+                inputName.focus();
+                return;
+            }
+            inputName.style.borderColor = '';
+
+            myProfile.name = name;
+            myProfile.age = parseInt(inputAge.value) || 18;
+            myProfile.country = inputCountry.value;
+
+            // Save to localStorage
+            localStorage.setItem('chatwave_profile', JSON.stringify(myProfile));
+
+            startMatching();
+        });
+
+        // ---- Cancel Match ----
+        btnCancelMatch.addEventListener('click', () => {
+            isMatching = false;
+            if (socket && socket.connected) {
+                socket.emit('cancel_match');
+            }
+            showScreen(screenLogin);
+        });
+
+        // ---- Skip ----
+        btnSkip.addEventListener('click', () => {
+            if (socket && socket.connected && isChatting) {
+                socket.emit('skip');
+                isChatting = false;
+                currentPartner = null;
+                messagesContainer.innerHTML = '';
+                typingIndicator.textContent = '';
+                startMatching();
+            }
+        });
+
+        // ---- Send ----
+        btnSend.addEventListener('click', sendTextMessage);
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendTextMessage();
+            }
+        });
+
+        // ---- Typing indicator ----
+        chatInput.addEventListener('input', () => {
+            if (socket && socket.connected && isChatting) {
+                socket.emit('typing');
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    if (socket && socket.connected) socket.emit('stop_typing');
+                }, 1500);
+            }
+        });
+
+        // ---- Emoji Picker ----
+        btnEmojiToggle.addEventListener('click', () => {
+            emojiPicker.classList.toggle('show');
+        });
+
+        document.querySelectorAll('.emoji-picker span').forEach(el => {
+            el.addEventListener('click', () => {
+                chatInput.value += el.textContent;
+                chatInput.focus();
+                emojiPicker.classList.remove('show');
+            });
+        });
+
+        // ---- Image Share ----
+        btnImageShare.addEventListener('click', () => {
+            imageInput.click();
+        });
+
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const dataUrl = ev.target.result;
+                imagePreview.src = dataUrl;
+                imagePreviewContainer.classList.add('show');
+
+                // Auto send after preview
+                if (socket && socket.connected && isChatting) {
+                    socket.emit('send_message', { type: 'image', data: dataUrl });
+                    addImageMessage('You', dataUrl, 'sent');
+                    imagePreviewContainer.classList.remove('show');
+                    imagePreview.src = '';
+                }
+            };
+            reader.readAsDataURL(file);
+            imageInput.value = '';
+        });
+
+        btnCancelImage.addEventListener('click', () => {
+            imagePreviewContainer.classList.remove('show');
+            imagePreview.src = '';
+        });
+
+        // ---- Voice Note ----
+        btnVoiceNote.addEventListener('click', () => {
+            voiceInput.click();
+        });
+
+        voiceInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const dataUrl = ev.target.result;
+                if (socket && socket.connected && isChatting) {
+                    socket.emit('send_message', { type: 'voice', data: dataUrl });
+                    addVoiceMessage('You', dataUrl, 'sent');
+                }
+            };
+            reader.readAsDataURL(file);
+            voiceInput.value = '';
+        });
+
+        // ---- Edit Name ----
+        btnEditName.addEventListener('click', () => {
+            const newName = prompt('Enter your new name:', myProfile.name);
+            if (newName && newName.trim()) {
+                myProfile.name = newName.trim();
+                myNameDisplay.textContent = myProfile.name;
+                myAvatarDisplay.textContent = myProfile.name.charAt(0).toUpperCase();
+                localStorage.setItem('chatwave_profile', JSON.stringify(myProfile));
+                if (socket && socket.connected) {
+                    socket.emit('update_profile', myProfile);
+                }
+            }
+        });
+
+        // =====================================================
+        //  LOAD SAVED PROFILE
+        // =====================================================
+        function loadProfile() {
+            const saved = localStorage.getItem('chatwave_profile');
+            if (saved) {
+                try {
+                    const p = JSON.parse(saved);
+                    myProfile = p;
+                    inputName.value = p.name || '';
+                    inputAge.value = p.age || 18;
+                    inputCountry.value = p.country || 'India';
+
+                    // Set gender pill
+                    document.querySelectorAll('.gender-pill').forEach(el => {
+                        el.classList.toggle('selected', el.dataset.value === p.gender);
+                    });
+
+                    // Set pref pill
+                    document.querySelectorAll('.pref-pill').forEach(el => {
+                        el.classList.toggle('selected', el.dataset.value === p.prefer);
+                    });
+
+                } catch (e) {}
+            }
+        }
+
+        // =====================================================
+        //  FALLBACK / DEMO MODE (if no server)
+        // =====================================================
+        // Agar server available nahi hai to bhi UI dikhega
+        // Lekin actual matching ke liye server chahiye
+
+        // =====================================================
+        //  INIT
+        // =====================================================
+        loadProfile();
+        showScreen(screenLogin);
+
+        // Try connecting
+        try {
+            connectSocket();
+        } catch (e) {
+            console.warn('Socket connection deferred');
+        }
+
+        console.log('🌊 ChatWave loaded!');
+        console.log('📡 Server URL:', SERVER_URL);
+        console.log('📝 Make sure your Node.js server is running at', SERVER_URL);
+    </script>
+
+</body>
+</html>
